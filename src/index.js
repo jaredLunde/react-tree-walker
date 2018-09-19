@@ -17,7 +17,7 @@ const FAUX_ITERATOR_SYMBOL = '@@iterator'
 
 function isIterator (maybeIterable) {
   if (Array.isArray(maybeIterable)) {
-    return maybeIterable
+    return true
   }
 
   if (maybeIterable === null || typeof maybeIterable !== 'object') {
@@ -75,7 +75,7 @@ export default function reactTreeWalker(tree, visitor, context, options = defaul
     }
 
     const recursive = (currentElement, currentContext) => {
-      if (isIterator(currentElement) !== false) {
+      if (isIterator(currentElement) === true) {
         const items = []
 
         for (let el of currentElement) {
@@ -134,7 +134,7 @@ export default function reactTreeWalker(tree, visitor, context, options = defaul
                   const tempChildren = render()
                   const children = ensureChild(tempChildren)
                   if (children !== null && children !== void 0) {
-                    if (isIterator(children) !== false) {
+                    if (isIterator(children) === true) {
                       // If its a react Children collection we need to breadth-first
                       // traverse each of them, and pMapSeries allows us to do a
                       // depth-first traversal that respects Promises. Thanks @sindresorhus!
@@ -256,7 +256,7 @@ export default function reactTreeWalker(tree, visitor, context, options = defaul
         currentElement.containerInfo !== void 0 &&
         currentElement.children !== void 0 &&
         currentElement.children.props !== void 0 &&
-        isIterator(currentElement.children.props.children) !== false
+        isIterator(currentElement.children.props.children) === true
       ) {
         const children = []
         const elChildren = currentElement.children.props.children
