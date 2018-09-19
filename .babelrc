@@ -1,7 +1,10 @@
 {
   "env": {
     "test": {
-      "presets": ["env", "react"]
+      "presets": [
+        ["@inst-app/esx", {"runtime": false}],
+        "@inst-app/react"
+      ]
     },
     "cjs": {
       "presets": [

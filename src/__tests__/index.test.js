@@ -416,7 +416,7 @@ describe('reactTreeWalker', () => {
       function Baz() {
         return ReactDOM.createPortal(
           <div>
-            {Immutable.List([<Foo data={1} />, <Foo data={2} />])}
+            {Immutable.List([<Foo data={1} key={1}/>, <Foo data={2} key={2}/>])}
           </div>,
           document.createElement('div'),
         )
