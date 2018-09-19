@@ -1,3 +1,33 @@
 {
-  "presets": [["env", { "targets": { "node": true } }], "stage-3", "react"]
+  "env": {
+    "test": {
+      "presets": ["env", "react"]
+    },
+    "cjs": {
+      "presets": [
+        "@inst-app/esx",
+        "@inst-app/react"
+      ]
+    },
+    "es": {
+      "presets": [
+        ["@inst-app/esx", {"env": {"modules": false}}],
+        "@inst-app/react"
+      ]
+    },
+    "node-es": {
+      "presets": [
+        [
+          "@inst-app/esx",
+          {
+            "env": {
+              "modules": false,
+              "targets": {"node": "8"}
+            }
+          }
+        ],
+        "@inst-app/react"
+      ]
+    }
+  }
 }

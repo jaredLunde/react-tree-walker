@@ -3,7 +3,7 @@
 // Inspired by the awesome work by the Apollo team: 😘
 // https://github.com/apollographql/react-apollo/blob/master/src/getDataFromTree.ts
 //
-// This version has been adapted to be Promise based and support native Preact.
+// This version has been adapted to be Promise based.
 
 const defaultOptions = {
   componentWillUnmount: false,
@@ -11,116 +11,92 @@ const defaultOptions = {
 
 const forwardRefSymbol = Symbol.for('react.forward_ref')
 
-// Lifted from https://github.com/sindresorhus/p-reduce
-// Thanks @sindresorhus! 🙏
-const pReduce = (iterable, reducer, initVal) =>
-  new Promise((resolve, reject) => {
-    const iterator = iterable[Symbol.iterator]()
-    let i = 0
+// lifted from React Fiber
+const MAYBE_ITERATOR_SYMBOL = typeof Symbol === 'function' && Symbol.iterator
+const FAUX_ITERATOR_SYMBOL = '@@iterator'
 
-    const next = total => {
-      const el = iterator.next()
+function isIterator (maybeIterable) {
+  if (Array.isArray(maybeIterable)) {
+    return maybeIterable
+  }
 
-      if (el.done) {
-        resolve(total)
-        return
-      }
+  if (maybeIterable === null || typeof maybeIterable !== 'object') {
+    return false
+  }
 
-      Promise.all([total, el.value])
-        .then(value => {
-          // eslint-disable-next-line no-plusplus
-          next(reducer(value[0], value[1], i++))
-        })
-        .catch(reject)
-    }
+  const maybeIterator =
+    (MAYBE_ITERATOR_SYMBOL && maybeIterable[MAYBE_ITERATOR_SYMBOL]) ||
+    maybeIterable[FAUX_ITERATOR_SYMBOL]
 
-    next(initVal)
-  })
-
-// Lifted from https://github.com/sindresorhus/p-map-series
-// Thanks @sindresorhus! 🙏
-const pMapSeries = (iterable, iterator) => {
-  const ret = []
-
-  return pReduce(iterable, (a, b, i) =>
-    Promise.resolve(iterator(b, i)).then(val => {
-      ret.push(val)
-    }),
-  ).then(() => ret)
+  return typeof maybeIterator === 'function'
 }
 
+const pMapSeries = (iterable, reducer) => new Promise(
+  (resolve, reject) => {
+    const out = []
+
+    for (let val of iterable) {
+      out.push(reducer(val).then(v => v).catch(reject))
+    }
+
+    return resolve(Promise.all(out))
+  }
+)
+
 const ensureChild = child =>
-  child && typeof child.render === 'function'
+  child !== null && child !== void 0 && typeof child.render === 'function'
     ? ensureChild(child.render())
     : child
 
-// Preact puts children directly on element, and React via props
-const getChildren = element =>
-  element.props && element.props.children
-    ? element.props.children
-    : element.children
-      ? element.children
-      : undefined
-
-// Preact uses "nodeName", React uses "type"
-const getType = element => element.type || element.nodeName
-
-// Preact uses "attributes", React uses "props"
-const getProps = element => element.props || element.attributes
-
-const isReactElement = element => !!getType(element)
-
 const isClassComponent = Comp =>
   Comp.prototype &&
-  (Comp.prototype.render ||
-    Comp.prototype.isReactComponent ||
-    Comp.prototype.isPureReactComponent)
+  (Comp.prototype.render !== void 0 ||
+    Comp.prototype.isReactComponent !== void 0 ||
+    Comp.prototype.isPureReactComponent !== void 0)
 
 const isForwardRef = Comp =>
-  Comp.type && Comp.type.$$typeof === forwardRefSymbol
+  Comp.type !== void 0 && Comp.type.$$typeof === forwardRefSymbol
 
-const providesChildContext = instance => !!instance.getChildContext
 
 // Recurse a React Element tree, running the provided visitor against each element.
 // If a visitor call returns `false` then we will not recurse into the respective
 // elements children.
-export default function reactTreeWalker(
-  tree,
-  visitor,
-  context,
-  options = defaultOptions,
-) {
+export default function reactTreeWalker(tree, visitor, context, options = defaultOptions) {
   return new Promise((resolve, reject) => {
     const safeVisitor = (...args) => {
       try {
         return visitor(...args)
-      } catch (err) {
+      }
+      catch (err) {
         reject(err)
       }
-      return undefined
+
+      return
     }
 
     const recursive = (currentElement, currentContext) => {
-      if (Array.isArray(currentElement)) {
-        return Promise.all(
-          currentElement.map(item => recursive(item, currentContext)),
-        )
+      if (isIterator(currentElement) !== false) {
+        const items = []
+
+        for (let el of currentElement) {
+          items.push(recursive(el, currentContext))
+        }
+
+        return Promise.all(items)
       }
 
-      if (!currentElement) {
+      if (currentElement === void 0 || currentElement === null) {
         return Promise.resolve()
       }
 
-      if (
-        typeof currentElement === 'string' ||
-        typeof currentElement === 'number'
-      ) {
+      const typeOfElement = typeof currentElement
+      if (typeOfElement === 'string' || typeOfElement === 'number') {
         // Just visit these, they are leaves so we don't keep traversing.
         safeVisitor(currentElement, null, currentContext)
         return Promise.resolve()
       }
 
-      if (currentElement.type) {
+      if (currentElement.type !== void 0 && currentElement.type !== null) {
         if (currentElement.type._context) {
           // eslint-disable-next-line no-param-reassign
           currentElement.type._context._currentValue =
@@ -130,11 +106,12 @@ export default function reactTreeWalker(
           const el = currentElement.props.children(
             currentElement.type.Provider._context._currentValue,
           )
+
           return recursive(el, currentContext)
         }
       }
 
-      if (isReactElement(currentElement)) {
+      if (currentElement.type !== void 0) {
         return new Promise(innerResolve => {
           const visitCurrentElement = (
             render,
@@ -156,15 +133,15 @@ export default function reactTreeWalker(
                   // for the current element.
                   const tempChildren = render()
                   const children = ensureChild(tempChildren)
-                  if (children) {
-                    if (Array.isArray(children)) {
+                  if (children !== null && children !== void 0) {
+                    if (isIterator(children) !== false) {
                       // If its a react Children collection we need to breadth-first
                       // traverse each of them, and pMapSeries allows us to do a
                       // depth-first traversal that respects Promises. Thanks @sindresorhus!
                       return pMapSeries(
                         children,
                         child =>
-                          child
+                          child !== null && child !== void 0
                             ? recursive(child, childContext)
                             : Promise.resolve(),
                       )
@@ -177,25 +154,18 @@ export default function reactTreeWalker(
                       .catch(reject)
                   }
                 }
-                return undefined
+
+                return
               })
               .catch(reject)
 
           if (
-            typeof getType(currentElement) === 'function' ||
+            typeof currentElement.type === 'function' ||
             isForwardRef(currentElement)
           ) {
-            const Component = getType(currentElement)
-            const props = Object.assign(
-              {},
-              Component.defaultProps,
-              getProps(currentElement),
-              // For Preact support so that the props get passed into render
-              // function.
-              {
-                children: getChildren(currentElement),
-              },
-            )
+            const Component = currentElement.type
+            const props = Object.assign({}, Component.defaultProps, currentElement.props)
+
             if (isForwardRef(currentElement)) {
               visitCurrentElement(
                 () => currentElement.type.render(props),
@@ -203,7 +173,8 @@ export default function reactTreeWalker(
                 currentContext,
                 currentContext,
               ).then(innerResolve)
-            } else if (isClassComponent(Component)) {
+            }
+            else if (isClassComponent(Component)) {
               // Class component
               const instance = new Component(props, currentContext)
 
@@ -236,35 +207,29 @@ export default function reactTreeWalker(
                 if (result !== null) {
                   instance.state = Object.assign({}, instance.state, result)
                 }
-              } else if (instance.UNSAFE_componentWillMount) {
-                instance.UNSAFE_componentWillMount()
-              } else if (instance.componentWillMount) {
-                instance.componentWillMount()
               }
 
-              const childContext = providesChildContext(instance)
+              const childContext = instance.getChildContext !== void 0
                 ? Object.assign({}, currentContext, instance.getChildContext())
                 : currentContext
 
               visitCurrentElement(
-                // Note: preact API also allows props and state to be referenced
-                // as arguments to the render func, so we pass them through
-                // here
-                () => instance.render(instance.props, instance.state),
+                () => instance.render(instance.props),
                 instance,
                 currentContext,
                 childContext,
               )
                 .then(() => {
                   if (
-                    options.componentWillUnmount &&
-                    instance.componentWillUnmount
+                    options.componentWillUnmount === true &&
+                    instance.componentWillUnmount !== void 0
                   ) {
                     instance.componentWillUnmount()
                   }
                 })
                 .then(innerResolve)
-            } else {
+            }
+            else {
               // Stateless Functional Component
               visitCurrentElement(
                 () => Component(props, currentContext),
@@ -273,10 +238,11 @@ export default function reactTreeWalker(
                 currentContext,
               ).then(innerResolve)
             }
-          } else {
+          }
+          else {
             // A basic element, such as a dom node, string, number etc.
             visitCurrentElement(
-              () => getChildren(currentElement),
+              () => currentElement.props.children,
               null,
               currentContext,
               currentContext,
@@ -287,16 +253,19 @@ export default function reactTreeWalker(
 
       // Portals
       if (
-        currentElement.containerInfo &&
-        currentElement.children &&
-        currentElement.children.props &&
-        Array.isArray(currentElement.children.props.children)
+        currentElement.containerInfo !== void 0 &&
+        currentElement.children !== void 0 &&
+        currentElement.children.props !== void 0 &&
+        isIterator(currentElement.children.props.children) !== false
       ) {
-        return Promise.all(
-          currentElement.children.props.children.map(child =>
-            recursive(child, currentContext),
-          ),
-        )
+        const children = []
+        const elChildren = currentElement.children.props.children
+
+        for (let el of elChildren) {
+          children.push(recursive(el, currentContext))
+        }
+
+        return Promise.all(children)
       }
 
       return Promise.resolve()

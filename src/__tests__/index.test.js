@@ -1,21 +1,12 @@
-/* eslint-disable react/sort-comp */
-/* eslint-disable react/no-multi-comp */
-/* eslint-disable react/prop-types */
-/* eslint-disable react/prefer-stateless-function */
-/* eslint-disable react/require-default-props */
-/* eslint-disable class-methods-use-this */
-
 import React, {
   createElement as reactCreateElement,
   Component as ReactComponent,
 } from 'react'
 import ReactDOM from 'react-dom'
-import {
-  createElement as preactCreateElement,
-  Component as PreactComponent,
-} from 'preact'
 import PropTypes from 'prop-types'
 import reactTreeWalker from '../index'
+import Immutable from 'immutable'
+
 
 const resolveLater = result =>
   new Promise(resolve =>
@@ -25,10 +16,9 @@ const resolveLater = result =>
   )
 
 describe('reactTreeWalker', () => {
-  describe('react + preact', () => {
+  describe('react', () => {
     ;[
-      { Component: ReactComponent, h: reactCreateElement },
-      { Component: PreactComponent, h: preactCreateElement },
+      { Component: ReactComponent, h: reactCreateElement }
     ].forEach(({ Component, h }) => {
       const Stateless = jest.fn(({ children }) => <div>{children}</div>)
       Stateless.contextTypes = { theContext: PropTypes.string.isRequired }
@@ -84,7 +74,7 @@ describe('reactTreeWalker', () => {
           }
         }
         return reactTreeWalker(createTree(), visitor).then(() => {
-          const expected = [1, 2, 4, 5, 6, 3]
+          const expected = [1, 2, 3, 4, 5, 6]
           expect(actual).toEqual(expected)
         })
       })
@@ -102,7 +92,7 @@ describe('reactTreeWalker', () => {
         }
         return reactTreeWalker(createTree({ async: true }), visitor).then(
           () => {
-            const expected = [1, 2, 4, 5, 6, 3]
+            const expected = [1, 2, 3, 4, 5, 6]
             expect(actual).toEqual(expected)
           },
         )
@@ -121,65 +111,8 @@ describe('reactTreeWalker', () => {
         }
         return reactTreeWalker(createTree({ async: true }), visitor).then(
           () => {
-            const expected = [1, 2, 4, 3]
+            const expected = [1, 2, 3, 4]
             expect(actual).toEqual(expected)
-          },
-        )
-      })
-
-      it('componentWillMount & setState', () => {
-        let actual = {}
-
-        class Foo extends Component {
-          constructor(props) {
-            super(props)
-            this.state = { foo: 'foo' }
-          }
-
-          componentWillMount() {
-            this.setState({ foo: 'bar' })
-            this.setState((state, props) => ({
-              other: `I am ${props.value} ${state.foo}`,
-            }))
-          }
-
-          render() {
-            actual = this.state
-            return h('div', null, this.state.foo)
-          }
-        }
-
-        return reactTreeWalker(h(Foo, { value: 'foo' }), () => true).then(
-          () => {
-            const expected = { foo: 'bar', other: 'I am foo bar' }
-            expect(actual).toMatchObject(expected)
-          },
-        )
-      })
-
-      it('UNSAFE_componentWillMount', () => {
-        let actual = {}
-
-        class Foo extends Component {
-          constructor(props) {
-            super(props)
-            this.state = { foo: 'foo' }
-          }
-
-          UNSAFE_componentWillMount() {
-            this.setState({ foo: 'bar' })
-          }
-
-          render() {
-            actual = this.state
-            return h('div', null, this.state.foo)
-          }
-        }
-
-        return reactTreeWalker(h(Foo, { value: 'foo' }), () => true).then(
-          () => {
-            const expected = { foo: 'bar' }
-            expect(actual).toMatchObject(expected)
           },
         )
       })
@@ -300,7 +233,7 @@ describe('reactTreeWalker', () => {
             },
             err => {
               expect(err).toMatchObject(new Error('Visitor made 💩'))
-              expect(actual).toEqual([1, 2, 4])
+              expect(actual).toEqual([1, 2, 3, 4])
             },
           )
         })
@@ -324,7 +257,7 @@ describe('reactTreeWalker', () => {
             },
             err => {
               expect(err).toMatchObject(new Error('Visitor made 💩'))
-              expect(actual).toEqual([1, 2, 4])
+              expect(actual).toEqual([1, 2, 3, 4])
             },
           )
         })
@@ -426,11 +359,11 @@ describe('reactTreeWalker', () => {
       return reactTreeWalker(tree, element => {
         elements.push(element)
       }).then(() => {
+        expect(elements.pop()).toBe('Message: Hello world')
         expect(elements.pop()).toBe('foo')
+        expect(elements.pop().type).toBe('i')
         expect(elements.pop().type).toBe(Foo)
         expect(elements.pop()).toBe('bar')
-        expect(elements.pop()).toBe('Message: Hello world')
-        expect(elements.pop().type).toBe('i')
         expect(elements.pop().type).toBe('strong')
       })
     })
@@ -469,6 +402,39 @@ describe('reactTreeWalker', () => {
       })
     })
 
+    it('supports iterable portals', () => {
+      class Foo extends ReactComponent {
+        getData() {
+          return this.props.data
+        }
+
+        render() {
+          return 'foo'
+        }
+      }
+
+      function Baz() {
+        return ReactDOM.createPortal(
+          <div>
+            {Immutable.List([<Foo data={1} />, <Foo data={2} />])}
+          </div>,
+          document.createElement('div'),
+        )
+      }
+
+      const actual = []
+      const visitor = (element, instance) => {
+        if (instance && typeof instance.getData === 'function') {
+          const data = instance.getData()
+          actual.push(data)
+        }
+      }
+      return reactTreeWalker(<Baz />, visitor).then(() => {
+        const expected = [1, 2]
+        expect(actual).toEqual(expected)
+      })
+    })
+
     it('supports forwardRef', () => {
       class Foo extends ReactComponent {
         render() {
@@ -488,6 +454,44 @@ describe('reactTreeWalker', () => {
         expect(elements.pop()).toBe('foo')
         expect(elements.pop().type).toBe(Foo)
         expect(elements.pop().type).toBe(Bar)
+      })
+    })
+
+    it('supports iterable functions', () => {
+      class Foo extends ReactComponent {
+        render() {
+          return Immutable.List([1, 2, 3])
+        }
+      }
+
+      const tree = <Foo/>
+
+      const elements = []
+      return reactTreeWalker(tree, element => {
+        elements.push(element)
+      }).then(() => {
+        expect(elements.pop()).toBe(3)
+        expect(elements.pop()).toBe(2)
+        expect(elements.pop()).toBe(1)
+      })
+    })
+
+    it('supports arrays', () => {
+      class Foo extends ReactComponent {
+        render() {
+          return [1, 2, 3]
+        }
+      }
+
+      const tree = <Foo/>
+
+      const elements = []
+      return reactTreeWalker(tree, element => {
+        elements.push(element)
+      }).then(() => {
+        expect(elements.pop()).toBe(3)
+        expect(elements.pop()).toBe(2)
+        expect(elements.pop()).toBe(1)
       })
     })
   })

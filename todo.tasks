@@ -1,5 +1,0 @@
-☐ support array types
-  if (Array.isArray(element)) {
-    element.forEach(item => walkTree(item, context, visitor));
-    return;
-  }
