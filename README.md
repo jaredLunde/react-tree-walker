@@ -11,7 +11,7 @@ Please consider carefully before adopting this library. If you are happy to take
 
 # react-tree-walker 🌲
 
-Walk a React (or Preact) element tree, executing a "visitor" function against each element.
+Walk a React element tree, executing a "visitor" function against each element.
 
 [![npm](https://img.shields.io/npm/v/react-tree-walker.svg?style=flat-square)](http://npm.im/react-tree-walker)
 [![MIT License](https://img.shields.io/npm/l/react-tree-walker.svg?style=flat-square)](http://opensource.org/licenses/MIT)
@@ -98,7 +98,7 @@ Not a particularly useful piece of code, but hopefully it is illustrative enough
 
 ## Order of Execution
 
-`react-tree-walker` walks your React application in a depth-first fashion, i.e. from the top down, visiting each child until their are no more children available before moving on to the next element. We can illustrate this behaviour using the below example:
+`react-tree-walker` walks your React application in a breadth-first fashion. We can illustrate this behaviour using the below example:
 
 ```jsx
 <div>
@@ -113,7 +113,7 @@ Not a particularly useful piece of code, but hopefully it is illustrative enough
 
 In this example the order of elements being visited would be:
 
-    div -> h1 -> "Foo" -> section -> p -> "One" -> p -> "Two" -> Footer
+    div -> h1 -> section -> Footer -> "Foo" ->  p -> p -> "One" -> "Two"
 
 Whilst your application is being walked its behaviour will be much the same as if it were being rendered on the server - i.e. the `componentWillMount` lifecycle will be executed for any "class" components, and context provided by any components will be passed down and become available to child components.
 
@@ -143,7 +143,7 @@ import reactTreeWalker from 'react-tree-walker'
 
 **Parameters**
 
-* **tree** (React/Preact element, _required_)
+* **tree** (React element, _required_)
 
   The react application you wish to walk.
 
@@ -181,7 +181,7 @@ It should encapsulates the logic you wish to execute against each element.
 
 **Parameters**
 
-* **element** (React/Preact element, _required_)
+* **element** (React element, _required_)
 
   The current element being walked.
 
