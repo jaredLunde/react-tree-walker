@@ -3,7 +3,7 @@
 //
 // This version has been adapted to be Promise based.
 
-const defaultOptions = {
+const defaultOpt = {
   componentWillUnmount: false,
 }
 
@@ -61,7 +61,7 @@ function isIterator (maybeIterable) {
   return typeof maybeIterator === 'function'
 }
 
-const pMapSeries = (iterable, reducer) => new Promise(
+const pMap = (iterable, reducer) => new Promise(
   (resolve, reject) => {
     const out = []
 
@@ -94,7 +94,7 @@ const isProvider = Comp =>
 // Recurse a React Element tree, running the provided visitor against each element.
 // If a visitor call returns `false` then we will not recurse into the respective
 // elements children.
-export default function reactTreeWalker(tree, visitor, context, options = defaultOptions) {
+export default function reactTreeWalker(tree, visitor, context, options = defaultOpt) {
   return new Promise((resolve, reject) => {
     const safeVisitor = (...args) => {
       try {
@@ -172,10 +172,7 @@ export default function reactTreeWalker(tree, visitor, context, options = defaul
                   const children = ensureChild(tempChildren)
                   if (children !== null && children !== void 0) {
                     if (isIterator(children) === true) {
-                      // If its a react Children collection we need to breadth-first
-                      // traverse each of them, and pMapSeries allows us to do a
-                      // depth-first traversal that respects Promises. Thanks @sindresorhus!
-                      return pMapSeries(
+                      return pMap(
                         children,
                         child =>
                           child !== null && child !== void 0
@@ -220,7 +217,8 @@ export default function reactTreeWalker(tree, visitor, context, options = defaul
                 value: instance.props || props,
               })
               instance.context = instance.context || currentContext
-              // set the instance state to null (not undefined) if not set, to match React behaviour
+              // set the instance state to null (not undefined) if not set,
+              // to match React behaviour
               instance.state = instance.state || null
 
               // Make the setState synchronous.
