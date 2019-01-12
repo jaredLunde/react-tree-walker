@@ -8,13 +8,23 @@
     },
     "cjs": {
       "presets": [
-        "@inst-app/esx",
+        [
+          "@inst-app/esx", {
+          "env": {"targets":  {"ie":  11, "chrome": 41}},
+          "runtime": {"corejs": 2}
+        }
+        ],
         "@inst-app/react"
       ]
     },
     "es": {
       "presets": [
-        ["@inst-app/esx", {"env": {"modules": false}}],
+        [
+          "@inst-app/esx", {
+            "env": {"modules": false, "targets":  {"ie":  11, "chrome": 41}},
+            "runtime": {"corejs": 2}
+          }
+        ],
         "@inst-app/react"
       ]
     },
