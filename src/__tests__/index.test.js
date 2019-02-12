@@ -328,7 +328,7 @@ describe('reactTreeWalker', () => {
 
   describe('react', () => {
     it('supports new context API', () => {
-      const { Provider, Consumer } = React.createContext()
+      const {Provider, Consumer} = React.createContext()
 
       class Foo extends React.Component {
         render() {
@@ -336,22 +336,36 @@ describe('reactTreeWalker', () => {
         }
       }
 
-      const tree = (
-        <Provider
-          value={{
-            message: 'Message',
-            identity: x => x,
-          }}
-        >
+      const Elsewhere = () => {
+        return (
           <Consumer>
             {({ message, identity }) => (
               <strong>
-                <i>{`${message}: ${identity('Hello world')}`}</i>
+                <i>{`${message}: ${identity('Hello world 2')}`}</i>
+                <Provider value={{
+                  message: 'Message first',
+                  identity: x => x,
+                }}>
+                  <Consumer>
+                    {({ message, identity }) => `${message}: ${identity('Hello world 1')}`}
+                  </Consumer>
+                </Provider>
               </strong>
             )}
           </Consumer>
+        )
+      }
+
+      const tree = (
+        <Provider
+          value={{
+            message: 'Message second',
+            identity: x => x,
+          }}
+        >
           bar
           <Foo>foo</Foo>
+          <Elsewhere/>
         </Provider>
       )
 
@@ -359,12 +373,15 @@ describe('reactTreeWalker', () => {
       return reactTreeWalker(tree, element => {
         elements.push(element)
       }).then(() => {
-        expect(elements.pop()).toBe('Message: Hello world')
-        expect(elements.pop()).toBe('foo')
+        expect(elements.pop()).toBe('Message first: Hello world 1')
+        expect(elements.pop()).toBe('Message second: Hello world 2')
+        expect(elements.pop().type).toBe(Provider)
         expect(elements.pop().type).toBe('i')
+        expect(elements.pop().type).toBe('strong')
+        expect(elements.pop()).toBe('foo')
+        expect(elements.pop().type).toBe(Elsewhere)
         expect(elements.pop().type).toBe(Foo)
         expect(elements.pop()).toBe('bar')
-        expect(elements.pop().type).toBe('strong')
       })
     })
 
@@ -454,6 +471,29 @@ describe('reactTreeWalker', () => {
         expect(elements.pop()).toBe('foo')
         expect(elements.pop().type).toBe(Foo)
         expect(elements.pop().type).toBe(Bar)
+      })
+    })
+
+    it('supports memo', () => {
+      const Foo = React.memo(props => <div>{props.children}</div>)
+      const tree = <Foo>foo</Foo>
+      const elements = []
+      return reactTreeWalker(tree, element => {
+        elements.push(element)
+      }).then(() => {
+        expect(elements.pop()).toBe('foo')
+        expect(elements.pop().type).toBe(Foo)
+      })
+    })
+
+    it('supports null', () => {
+      const Foo = () => null
+      const tree = <Foo/>
+      const elements = []
+      return reactTreeWalker(tree, element => {
+        elements.push(element)
+      }).then(() => {
+        expect(elements.pop().type).toBe(Foo)
       })
     })
 

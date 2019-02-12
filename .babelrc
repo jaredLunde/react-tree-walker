@@ -2,44 +2,49 @@
   "env": {
     "test": {
       "presets": [
-        ["@inst-app/esx", {"runtime": false}],
-        "@inst-app/react"
+        ["@stellar-apps/es", {"runtime": false}],
+        "@stellar-apps/react"
       ]
     },
     "cjs": {
       "presets": [
         [
-          "@inst-app/esx", {
-          "env": {"targets":  {"ie":  11, "chrome": 41}},
-          "runtime": {"corejs": 2}
-        }
+          "@stellar-apps/es", {
+            "env": {"targets":  {"ie":  11, "chrome": 41}},
+            "runtime": {"corejs": 2}
+          }
         ],
-        "@inst-app/react"
+        "@stellar-apps/react"
       ]
     },
     "es": {
       "presets": [
         [
-          "@inst-app/esx", {
-            "env": {"modules": false, "targets":  {"ie":  11, "chrome": 41}},
-            "runtime": {"corejs": 2}
+          "@stellar-apps/es", {
+            "env": {
+              "useBuiltIns": false,
+              "modules": false,
+              "targets": {"browsers": ">5% in US"}
+            },
+            "runtime": {"useESModules": true}
           }
         ],
-        "@inst-app/react"
+        "@stellar-apps/react"
       ]
     },
     "node-es": {
       "presets": [
         [
-          "@inst-app/esx",
+          "@stellar-apps/es",
           {
             "env": {
               "modules": false,
               "targets": {"node": "8"}
-            }
+            },
+            "runtime": false
           }
         ],
-        "@inst-app/react"
+        "@stellar-apps/react"
       ]
     }
   }

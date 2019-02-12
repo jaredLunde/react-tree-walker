@@ -9,43 +9,19 @@ const defaultOpt = {
 
 const hasSymbol = typeof Symbol === 'function' && Symbol.for;
 
-export const REACT_ELEMENT_TYPE = hasSymbol
-  ? Symbol.for('react.element')
-  : 0xeac7;
-export const REACT_PORTAL_TYPE = hasSymbol
-  ? Symbol.for('react.portal')
-  : 0xeaca;
-export const REACT_FRAGMENT_TYPE = hasSymbol
-  ? Symbol.for('react.fragment')
-  : 0xeacb;
-export const REACT_STRICT_MODE_TYPE = hasSymbol
-  ? Symbol.for('react.strict_mode')
-  : 0xeacc;
-export const REACT_PROFILER_TYPE = hasSymbol
-  ? Symbol.for('react.profiler')
-  : 0xead2;
 export const REACT_PROVIDER_TYPE = hasSymbol
   ? Symbol.for('react.provider')
-  : 0xeacd;
+  : 0xeacd
 export const REACT_CONTEXT_TYPE = hasSymbol
   ? Symbol.for('react.context')
-  : 0xeace;
-export const REACT_CONCURRENT_MODE_TYPE = hasSymbol
-  ? Symbol.for('react.concurrent_mode')
-  : 0xeacf;
+  : 0xeace
 export const REACT_FORWARD_REF_TYPE = hasSymbol
   ? Symbol.for('react.forward_ref')
-  : 0xead0;
-export const REACT_SUSPENSE_TYPE = hasSymbol
-  ? Symbol.for('react.suspense')
-  : 0xead1;
-export const REACT_MEMO_TYPE = hasSymbol ? Symbol.for('react.memo') : 0xead3;
-export const REACT_LAZY_TYPE = hasSymbol ? Symbol.for('react.lazy') : 0xead4;
+  : 0xead0
 
-const MAYBE_ITERATOR_SYMBOL = typeof Symbol === 'function' && Symbol.iterator;
-const FAUX_ITERATOR_SYMBOL = '@@iterator'
+const MAYBE_ITERATOR_SYMBOL = typeof Symbol === 'function' && Symbol.iterator
 
-function isIterator (maybeIterable) {
+const isIterator = maybeIterable => {
   if (Array.isArray(maybeIterable)) {
     return true
   }
@@ -56,234 +32,223 @@ function isIterator (maybeIterable) {
 
   const maybeIterator =
     (MAYBE_ITERATOR_SYMBOL && maybeIterable[MAYBE_ITERATOR_SYMBOL]) ||
-    maybeIterable[FAUX_ITERATOR_SYMBOL]
+    maybeIterable['@@iterator']
 
   return typeof maybeIterator === 'function'
 }
 
-const pMap = (iterable, reducer) => new Promise(
-  (resolve, reject) => {
-    const out = []
-
-    for (let val of iterable) {
-      out.push(reducer(val).then(v => v).catch(reject))
-    }
-
-    return resolve(Promise.all(out))
-  }
-)
-
 const ensureChild = child =>
-  child !== null && child !== void 0 && typeof child.render === 'function'
-    ? ensureChild(child.render())
-    : child
-
-const isClassComponent = Comp =>
-  Comp.prototype &&
-  (Comp.prototype.render !== void 0 ||
-    Comp.prototype.isReactComponent !== void 0 ||
-    Comp.prototype.isPureReactComponent !== void 0)
+  child !== void 0 && child !== null && typeof child.render === 'function' ? ensureChild(child.render()) : child
 
 const isForwardRef = Comp =>
   Comp.type !== void 0 && Comp.type.$$typeof === REACT_FORWARD_REF_TYPE
-const isContext = Comp =>
-  Comp.type !== void 0 && Comp.type.$$typeof === REACT_CONTEXT_TYPE
-const isProvider = Comp =>
-  Comp.type !== void 0 && Comp.type.$$typeof === REACT_PROVIDER_TYPE
 
+// const isMemo = Comp =>
 // Recurse a React Element tree, running the provided visitor against each element.
 // If a visitor call returns `false` then we will not recurse into the respective
 // elements children.
 export default function reactTreeWalker(tree, visitor, context, options = defaultOpt) {
   return new Promise((resolve, reject) => {
-    const safeVisitor = (...args) => {
-      try {
-        return visitor(...args)
-      }
-      catch (err) {
-        reject(err)
-      }
+    recursive(tree, context, new Map()).then(resolve, reject)
 
-      return
-    }
-
-    const recursive = (currentElement, currentContext) => {
+    async function recursive (currentElement, currentContext, newContext) {
       if (isIterator(currentElement) === true) {
         const items = []
 
         for (let el of currentElement) {
-          items.push(recursive(el, currentContext))
+          items.push(recursive(el, currentContext, newContext))
         }
 
         return Promise.all(items)
       }
 
       if (currentElement === void 0 || currentElement === null) {
-        return Promise.resolve()
+        return
       }
 
       const typeOfElement = typeof currentElement
+
       if (typeOfElement === 'string' || typeOfElement === 'number') {
         // Just visit these, they are leaves so we don't keep traversing.
-        safeVisitor(currentElement, null, currentContext)
-        return Promise.resolve()
-      }
-
-      if (currentElement.type !== void 0 && currentElement.type !== null) {
-        if (isProvider(currentElement)) {
-          // eslint-disable-next-line no-param-reassign
-          currentElement.type._context._currentValue =
-            currentElement.props.value
+        try {
+          visitor(currentElement, null, currentContext)
+          return
         }
-
-        if (isContext(currentElement)) {
-          return recursive(
-            currentElement.props.children(
-              currentElement.type._context !== void 0
-                ? currentElement.type._context._currentValue
-                : currentElement.type.Provider._context._currentValue,
-            ),
-            currentContext
-          )
+        catch (err) {
+          reject(err)
         }
       }
 
       if (currentElement.type !== void 0) {
-        return new Promise(innerResolve => {
-          const visitCurrentElement = (
-            render,
-            compInstance,
-            elContext,
-            childContext,
-          ) =>
-            Promise.resolve(
-              safeVisitor(
-                currentElement,
-                compInstance,
-                elContext,
-                childContext,
-              ),
-            )
-              .then(result => {
-                if (result !== false) {
-                  // A false wasn't returned so we will attempt to visit the children
-                  // for the current element.
-                  const tempChildren = render()
-                  const children = ensureChild(tempChildren)
-                  if (children !== null && children !== void 0) {
-                    if (isIterator(children) === true) {
-                      return pMap(
-                        children,
-                        child =>
-                          child !== null && child !== void 0
-                            ? recursive(child, childContext)
-                            : Promise.resolve(),
-                      )
-                        .then(innerResolve, reject)
-                        .catch(reject)
-                    }
-                    // Otherwise we pass the individual child to the next recursion.
-                    return recursive(children, childContext)
-                      .then(innerResolve, reject)
-                      .catch(reject)
-                  }
-                }
+        if (
+          // isProvider
+          currentElement.type !== void 0 && currentElement.type.$$typeof === REACT_PROVIDER_TYPE
+        ) {
+          newContext = new Map(newContext)
+          newContext.set(currentElement.type, currentElement.props.value)
+        }
 
-                return
-              })
-              .catch(reject)
+        if (
+          // isConsumer
+          currentElement.type !== void 0 && currentElement.type.$$typeof === REACT_CONTEXT_TYPE
+        ) {
+          let value = currentElement.type._currentValue
+          const provider = currentElement.type._context
+            ? currentElement.type._context.Provider
+            : currentElement.type.Provider
 
-          if (
-            typeof currentElement.type === 'function' ||
-            isForwardRef(currentElement)
-          ) {
-            const Component = currentElement.type
-            const props = Object.assign({}, Component.defaultProps, currentElement.props)
+          if (newContext.has(provider)) {
+            value = newContext.get(provider)
+          }
 
-            if (isForwardRef(currentElement)) {
-              visitCurrentElement(
-                () => currentElement.type.render(props),
-                null,
-                currentContext,
-                currentContext,
-              ).then(innerResolve)
-            }
-            else if (isClassComponent(Component)) {
-              // Class component
-              const instance = new Component(props, currentContext)
+          return recursive(
+            currentElement.props.children(value),
+            currentContext,
+            newContext
+          )
+        }
 
-              // In case the user doesn't pass these to super in the constructor
-              Object.defineProperty(instance, 'props', {
-                value: instance.props || props,
-              })
-              instance.context = instance.context || currentContext
-              // set the instance state to null (not undefined) if not set,
-              // to match React behaviour
-              instance.state = instance.state || null
+        const visitCurrentElement = async (
+          render,
+          compInstance,
+          elContext,
+          childContext,
+        ) => {
+          let result
 
-              // Make the setState synchronous.
-              instance.setState = newState => {
-                if (typeof newState === 'function') {
-                  // eslint-disable-next-line no-param-reassign
-                  newState = newState(
-                    instance.state,
-                    instance.props,
-                    instance.context,
+          try {
+            result = await visitor(currentElement, compInstance, elContext, childContext)
+          }
+          catch (err) {
+            reject(err)
+          }
+
+          if (result !== false) {
+            // A false wasn't returned so we will attempt to visit the children
+            // for the current element.
+            const tempChildren = render()
+            const children = ensureChild(tempChildren)
+
+            if (children !== null && children !== void 0) {
+              if (isIterator(children) === true) {
+                const out = []
+
+                for (let child of children) {
+                  out.push(
+                    child !== null && child !== void 0
+                      ? recursive(child, childContext, newContext)
+                      : void 0
                   )
                 }
-                instance.state = Object.assign({}, instance.state, newState)
+
+                return Promise.all(out).catch(reject)
+              }
+              // Otherwise we pass the individual child to the next recursion.
+              return recursive(children, childContext, newContext).catch(reject)
+            }
+          }
+        }
+
+        if (
+          typeof currentElement.type === 'function' ||
+          isForwardRef(currentElement)
+        ) {
+          const Component = currentElement.type
+          const props = Object.assign({}, Component.defaultProps, currentElement.props)
+
+          if (isForwardRef(currentElement)) {
+            return visitCurrentElement(
+              () => currentElement.type.render(props),
+              null,
+              currentContext,
+              currentContext,
+            )
+          }
+          else if (
+            // isClassComponent
+            Component.prototype &&
+            (Component.prototype.render !== void 0 ||
+              Component.prototype.isReactComponent !== void 0 ||
+              Component.prototype.isPureReactComponent !== void 0)
+          ) {
+            // Class component
+            const instance = new Component(props, currentContext)
+            // In case the user doesn't pass these to super in the constructor
+            Object.defineProperty(instance, 'props', {
+              value: instance.props || props,
+            })
+            instance.context = instance.context || currentContext
+            // set the instance state to null (not undefined) if not set,
+            // to match React behaviour
+            instance.state = instance.state || null
+
+            // Make the setState synchronous.
+            instance.setState = newState => {
+              if (typeof newState === 'function') {
+                // eslint-disable-next-line no-param-reassign
+                newState = newState(instance.state, instance.props, instance.context)
               }
 
-              if (Component.getDerivedStateFromProps) {
-                const result = Component.getDerivedStateFromProps(
-                  instance.props,
-                  instance.state,
-                )
-                if (result !== null) {
-                  instance.state = Object.assign({}, instance.state, result)
-                }
+              instance.state = Object.assign({}, instance.state, newState)
+            }
+
+            if (Component.getDerivedStateFromProps) {
+              const result = Component.getDerivedStateFromProps(instance.props, instance.state)
+
+              if (result !== null) {
+                instance.state = Object.assign({}, instance.state, result)
               }
+            }
 
-              const childContext = instance.getChildContext !== void 0
-                ? Object.assign({}, currentContext, instance.getChildContext())
-                : currentContext
+            const childContext = typeof instance.getChildContext === 'function'
+              ? Object.assign({}, currentContext, instance.getChildContext())
+              : currentContext
 
-              visitCurrentElement(
+            let result
+
+            try {
+              result = await visitCurrentElement(
                 () => instance.render(instance.props),
                 instance,
                 currentContext,
                 childContext,
               )
-                .then(() => {
-                  if (
-                    options.componentWillUnmount === true &&
-                    instance.componentWillUnmount !== void 0
-                  ) {
-                    instance.componentWillUnmount()
-                  }
-                })
-                .then(innerResolve)
             }
-            else {
-              // Stateless Functional Component
-              visitCurrentElement(
-                () => Component(props, currentContext),
-                null,
-                currentContext,
-                currentContext,
-              ).then(innerResolve)
+            catch (err) {
+              reject(err)
             }
+
+            if (
+              options.componentWillUnmount === true &&
+              instance.componentWillUnmount !== void 0
+            ) {
+              instance.componentWillUnmount()
+            }
+            else if (instance.componentWillMount !== void 0) {
+              instance.componentWillMount()
+            }
+
+            return result
           }
           else {
-            // A basic element, such as a dom node, string, number etc.
-            visitCurrentElement(
-              () => currentElement.props.children,
+            // Stateless Functional Component
+            return visitCurrentElement(
+              () => Component(props, currentContext),
               null,
               currentContext,
               currentContext,
-            ).then(innerResolve)
+            )
           }
-        })
+        }
+        else {
+          // A basic element, such as a dom node, string, number etc.
+          return visitCurrentElement(
+            () => currentElement.props.children,
+            null,
+            currentContext,
+            currentContext,
+          )
+        }
       }
 
       // Portals
@@ -297,15 +262,11 @@ export default function reactTreeWalker(tree, visitor, context, options = defaul
         const elChildren = currentElement.children.props.children
 
         for (let el of elChildren) {
-          children.push(recursive(el, currentContext))
+          children.push(recursive(el, currentContext, newContext))
         }
 
-        return Promise.all(children)
+        return Promise.all(children).catch(reject)
       }
-
-      return Promise.resolve()
     }
-
-    recursive(tree, context).then(resolve, reject)
   })
 }
