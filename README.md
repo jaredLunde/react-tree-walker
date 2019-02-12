@@ -19,7 +19,7 @@ This fork fixes many of the original's issues:
 
 ### Disclaimer
 
-This library does not operate in an idiomatic manner against React. It makes some assumptions about the internals of React and makes calls against Components directly. This is a risk as it likely to break with future releases of React, i.e. the upcoming Suspense release.
+This library does not operate in an idiomatic manner against React. As such, it is completely unusable with React Hooks. It makes some assumptions about the internals of React and makes calls against Components directly. This is a risk as it likely to break with future releases of React, i.e. the upcoming Suspense release.
 
 Personally, I've found this library helpful in providing me with a solution for my server side rendering data fetching needs. That being said I very much look forward to being able to move over to Suspense as soon as it is stable and avoid having to use hacks/workarounds such as this library.
 
