@@ -385,6 +385,63 @@ describe('reactTreeWalker', () => {
       })
     })
 
+    it('componentWillMount & setState', () => {
+      let actual = {}
+
+      class Foo extends React.Component {
+        constructor(props) {
+          super(props)
+          this.state = { foo: 'foo' }
+        }
+
+        componentWillMount() {
+          this.setState({ foo: 'bar' })
+          this.setState((state, props) => ({
+            other: `I am ${props.value} ${state.foo}`,
+          }))
+        }
+
+        render() {
+          actual = this.state
+          return React.createElement('div', null, this.state.foo)
+        }
+      }
+
+      return reactTreeWalker(React.createElement(Foo, { value: 'foo' }), () => true).then(
+        () => {
+          const expected = { foo: 'bar', other: 'I am foo bar' }
+          expect(actual).toMatchObject(expected)
+        },
+      )
+    })
+
+    it('UNSAFE_componentWillMount', () => {
+      let actual = {}
+
+      class Foo extends React.Component {
+        constructor(props) {
+          super(props)
+          this.state = { foo: 'foo' }
+        }
+
+        UNSAFE_componentWillMount() {
+          this.setState({ foo: 'bar' })
+        }
+
+        render() {
+          actual = this.state
+          return React.createElement('div', null, this.state.foo)
+        }
+      }
+
+      return reactTreeWalker(React.createElement(Foo, { value: 'foo' }), () => true).then(
+        () => {
+          const expected = { foo: 'bar' }
+          expect(actual).toMatchObject(expected)
+        },
+      )
+    })
+
     it('supports portals', () => {
       class Foo extends ReactComponent {
         getData() {

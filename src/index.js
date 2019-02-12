@@ -206,6 +206,13 @@ export default function reactTreeWalker(tree, visitor, context, options = defaul
 
             let result
 
+            if (instance.componentWillMount !== void 0) {
+              instance.componentWillMount()
+            }
+            else if (instance.UNSAFE_componentWillMount !== void 0) {
+              instance.UNSAFE_componentWillMount()
+            }
+
             try {
               result = await visitCurrentElement(
                 () => instance.render(instance.props),
@@ -223,9 +230,6 @@ export default function reactTreeWalker(tree, visitor, context, options = defaul
               instance.componentWillUnmount !== void 0
             ) {
               instance.componentWillUnmount()
-            }
-            else if (instance.componentWillMount !== void 0) {
-              instance.componentWillMount()
             }
 
             return result
