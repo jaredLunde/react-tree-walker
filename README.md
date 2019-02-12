@@ -1,3 +1,10 @@
+### Note
+This fork fixes many of the original's issues:
+- Supports the new React context completely
+- Supports all iterables as children, not just Array types
+- Resolves promises in a breadth-first fashion
+- Is at least twice as fast
+
 ### Disclaimer
 
 This library does not operate in an idiomatic manner against React. It makes some assumptions about the internals of React and makes calls against Components directly. This is a risk as it likely to break with future releases of React, i.e. the upcoming Suspense release.
