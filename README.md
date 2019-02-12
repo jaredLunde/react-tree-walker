@@ -189,6 +189,11 @@ It should encapsulates the logic you wish to execute against each element.
 
   If the current element being walked is a "class" Component then this will contain the instance of the Component - allowing you to interface with its methods etc.
 
+* **newContext** (`Map`, _required_)
+
+  The new React context values for each provider that are available to the current element. Use
+  `Map.get(Provider)` to get its value.
+
 * **context** (`Object`, _required_)
 
   The React context that is available to the current element. `react-tree-walker` emulates React in exposing context down the tree.

@@ -71,7 +71,7 @@ export default function reactTreeWalker(tree, visitor, context, options = defaul
       if (typeOfElement === 'string' || typeOfElement === 'number') {
         // Just visit these, they are leaves so we don't keep traversing.
         try {
-          visitor(currentElement, null, currentContext)
+          visitor(currentElement, null, newContext, currentContext)
           return
         }
         catch (err) {
@@ -117,7 +117,7 @@ export default function reactTreeWalker(tree, visitor, context, options = defaul
           let result
 
           try {
-            result = await visitor(currentElement, compInstance, elContext, childContext)
+            result = await visitor(currentElement, compInstance, newContext, elContext, childContext)
           }
           catch (err) {
             reject(err)
