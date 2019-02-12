@@ -1,3 +1,15 @@
+
+# @jaredlunde/react-tree-walker 🌲
+`yarn add @jaredlunde/react-tree-walker`
+
+Walk a React element tree, executing a "visitor" function against each element.
+
+[![MIT License](https://img.shields.io/npm/l/react-tree-walker.svg?style=flat-square)](http://opensource.org/licenses/MIT)
+[![Travis](https://img.shields.io/travis/jaredLunde/react-tree-walker.svg?style=flat-square)](https://travis-ci.org/jaredLunde/react-tree-walker)
+[![Codecov](https://img.shields.io/codecov/c/github/jaredLunde/react-tree-walker.svg?style=flat-square)](https://codecov.io/github/jaredLunde/react-tree-walker)
+
+----
+
 ### Note
 This fork fixes many of the original's issues:
 - Supports the new React context completely
@@ -14,16 +26,6 @@ Personally, I've found this library helpful in providing me with a solution for 
 Please consider carefully before adopting this library. If you are happy to take on the risk I would recommend you write an abstraction over it that will allow you to easily remove/replace it from your codebase with Suspense or another more idiomatic solution.
 
 ----
-
-
-# @jaredlunde/react-tree-walker 🌲
-`yarn add @jaredlunde/react-tree-walker`
-
-Walk a React element tree, executing a "visitor" function against each element.
-
-[![MIT License](https://img.shields.io/npm/l/react-tree-walker.svg?style=flat-square)](http://opensource.org/licenses/MIT)
-[![Travis](https://img.shields.io/travis/jaredLunde/react-tree-walker.svg?style=flat-square)](https://travis-ci.org/jaredLunde/react-tree-walker)
-[![Codecov](https://img.shields.io/codecov/c/github/jaredLunde/react-tree-walker.svg?style=flat-square)](https://codecov.io/github/jaredLunde/react-tree-walker)
 
 ## TOCs
 
